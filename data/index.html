@@ -12,7 +12,7 @@
     <div class="container">
         <div class="glass-panel">
             <div class="display">
-                <input type="password" id="pin-display" readonly placeholder="ENTER PIN">
+                <input type="password" id="pin-display" readonly placeholder="ENTER PIN" aria-label="PIN Display">
                 <div id="status-msg"></div>
             </div>
             <div class="keypad">
@@ -25,9 +25,9 @@
                 <button class="key" onclick="appendPin('7')">7</button>
                 <button class="key" onclick="appendPin('8')">8</button>
                 <button class="key" onclick="appendPin('9')">9</button>
-                <button class="key action-key" onclick="clearPin()">C</button>
+                <button class="key action-key" onclick="clearPin()" aria-label="Clear PIN">C</button>
                 <button class="key" onclick="appendPin('0')">0</button>
-                <button class="key action-key enter-key" onclick="submitPin()">↵</button>
+                <button class="key action-key enter-key" onclick="submitPin()" aria-label="Submit PIN">↵</button>
             </div>
         </div>
     </div>
