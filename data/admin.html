@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gate Admin</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dashboard-body">
+    <div id="login-overlay">
+        <div class="glass-panel" style="text-align: center;">
+            <h2 style="color: var(--accent-color);">Admin Login</h2>
+            <input type="password" id="admin-pass" placeholder="Password"
+                style="width: 200px; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white;">
+            <br><br>
+            <button class="btn btn-primary" onclick="login()">Login</button>
+            <p id="login-error" style="color: red; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <span>🛡️ Gate Admin</span>
+            </div>
+            <div class="nav-links">
+                <div class="nav-item active" onclick="switchTab('dashboard')">
+                    <span>📊</span> Overview
+                </div>
+                <div class="nav-item" onclick="switchTab('users')">
+                    <span>👥</span> Users
+                </div>
+                <div class="nav-item" onclick="switchTab('logs')">
+                    <span>📜</span> Logs
+                </div>
+                <div class="nav-item" onclick="switchTab('mqtt')">
+                    <span>📡</span> MQTT
+                </div>
+            </div>
+            <div class="sidebar-footer">
+                v1.0.0 Alpha
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+
+            <!-- Dashboard Tab -->
+            <div id="dashboard-tab" class="tab-content active">
+                <div class="header-bar">
+                    <div class="page-title">Dashboard</div>
+                    <button class="btn btn-primary" onclick="loadData()">🔄 Refresh</button>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card accent">
+                        <span class="stat-label">Total Users</span>
+                        <span class="stat-value" id="stat-users">0</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-label">Entries Today</span>
+                        <span class="stat-value" id="stat-entries">0</span>
+                    </div>
+                    <div class="stat-card danger">
+                        <span class="stat-label">Failed (24h)</span>
+                        <span class="stat-value" id="stat-failed">0</span>
+                    </div>
+                </div>
+
+                <h3 style="color: #888; margin-top: 40px;">Quick Actions</h3>
+                <div class="action-grid">
+                    <button class="quick-action-btn" onclick="openGate()">
+                        🔓 Open Gate
+                    </button>
+                    <!-- More slots for future actions -->
+                </div>
+                <p id="gate-msg"
+                    style="text-align: center; color: #4caf50; margin-top: 10px; font-weight: bold; display: none;">Gate
+                    Opened! 🔓</p>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-tab" class="tab-content">
+                <div class="header-bar">
+                    <div class="page-title">User Management</div>
+                    <button class="btn btn-primary" onclick="showAddUserModal()">+ Add New User</button>
+                </div>
+                <div class="glass-table-panel">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>PIN</th>
+                                <th>Type</th>
+                                <th>Limit</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-list"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Logs Tab -->
+            <div id="logs-tab" class="tab-content">
+                <div class="header-bar">
+                    <div class="page-title">Access Logs</div>
+                    <div>
+                        <button class="btn" style="background: #333; color: white;" onclick="exportLogs()">Export
+                            JSON</button>
+                        <a href="/api/admin/logs/download" class="btn"
+                            style="background: #444; color: white; text-decoration: none;">Download CSV</a>
+                    </div>
+                </div>
+                <div class="glass-table-panel">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>User</th>
+                                <th>Status</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="log-list"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- MQTT Tab -->
+            <div id="mqtt-tab" class="tab-content">
+                <div class="header-bar">
+                    <div class="page-title">MQTT Configuration</div>
+                    <button class="btn btn-primary" onclick="saveMQTT()">Save Config</button>
+                </div>
+
+                <div class="glass-panel" style="max-width: 600px;">
+                    <div class="input-group">
+                        <label>Broker URI</label>
+                        <input type="text" id="mqtt-uri" placeholder="mqtt://test.mosquitto.org">
+                    </div>
+                    <div class="input-group">
+                        <label>Command Topic</label>
+                        <input type="text" id="mqtt-cmd" placeholder="gate/cmd">
+                    </div>
+                    <div class="input-group">
+                        <label>Status Topic</label>
+                        <input type="text" id="mqtt-status" placeholder="gate/status">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <h3 style="margin-top: 0; color: #ff6b6b;">Confirm Deletion</h3>
+            <p>Are you sure you want to delete this user?</p>
+            <p id="delete-user-pin" style="display: none;"></p>
+            <div style="display: flex; justify-content: center; gap: 15px; margin-top: 20px;">
+                <button class="btn" style="background: #444; color: #fff;" onclick="hideDeleteModal()">Cancel</button>
+                <button class="btn btn-danger" onclick="confirmDeleteUser()">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="add-modal" class="modal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0;" id="modal-title">Add User</h3>
+            <input type="hidden" id="edit-pin">
+
+            <div class="input-group">
+                <label>Name</label>
+                <input type="text" id="new-name">
+            </div>
+
+            <div class="input-group">
+                <label>Type</label>
+                <select id="new-type" onchange="toggleLimitInput()">
+                    <option value="0">Unlimited</option>
+                    <option value="1">Date Limit (Days)</option>
+                    <option value="2">Count Limit</option>
+                    <option value="3">Guest (1-time)</option>
+                </select>
+            </div>
+
+            <div class="input-group" id="limit-group" style="display: none;">
+                <label id="limit-label">Limit</label>
+                <input type="number" id="new-limit" value="1">
+            </div>
+
+            <!-- Schedule Inputs -->
+            <div style="margin-top: 15px; border-top: 1px solid #444; padding-top: 10px;">
+                <label style="display: block; margin-bottom: 5px; color: var(--accent-color);">Schedule
+                    (Optional)</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8em;">Start Time</label>
+                        <input type="time" id="new-start-time" style="width: 100%;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.8em;">End Time</label>
+                        <input type="time" id="new-end-time" style="width: 100%;">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                    <label><input type="checkbox" class="day-check" value="2"> Mo</label>
+                    <label><input type="checkbox" class="day-check" value="4"> Tu</label>
+                    <label><input type="checkbox" class="day-check" value="8"> We</label>
+                    <label><input type="checkbox" class="day-check" value="16"> Th</label>
+                    <label><input type="checkbox" class="day-check" value="32"> Fr</label>
+                    <label><input type="checkbox" class="day-check" value="64"> Sa</label>
+                    <label><input type="checkbox" class="day-check" value="1"> Su</label>
+                </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn" style="background: #444; color: #fff;" onclick="hideAddUserModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveUser()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/admin';
+        let currentUsers = [];
+
+        async function login() {
+            const pass = document.getElementById('admin-pass').value;
+            const resp = await fetch('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ password: pass })
+            });
+            if (resp.ok) {
+                document.getElementById('login-overlay').style.display = 'none';
+                loadData();
+            } else {
+                document.getElementById('login-error').textContent = 'Invalid Password';
+            }
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            // Sidebar active state
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+
+            // Add active class to clicked item
+            // Since we can't easily pass 'this' in a way that survives re-renders if we were using a framework, 
+            // but here we are static. 'event.currentTarget' is safer than 'event.target'
+            event.currentTarget.classList.add('active');
+
+            document.getElementById(tab + '-tab').classList.add('active');
+        }
+
+        async function loadData() {
+            loadUsers();
+            loadLogs();
+            loadMQTT();
+        }
+
+        async function loadMQTT() {
+            try {
+                const resp = await fetch(API_BASE + '/mqtt');
+                if (resp.ok) {
+                    const cfg = await resp.json();
+                    document.getElementById('mqtt-uri').value = cfg.uri || '';
+                    document.getElementById('mqtt-cmd').value = cfg.cmd_topic || '';
+                    document.getElementById('mqtt-status').value = cfg.status_topic || '';
+                }
+            } catch (e) { console.log('MQTT load failed', e); }
+        }
+
+        async function saveMQTT() {
+            const uri = document.getElementById('mqtt-uri').value;
+            const cmd = document.getElementById('mqtt-cmd').value;
+            const status = document.getElementById('mqtt-status').value;
+
+            const resp = await fetch(API_BASE + '/mqtt', {
+                method: 'POST',
+                body: JSON.stringify({ uri, cmd_topic: cmd, status_topic: status })
+            });
+            if (resp.ok) alert('MQTT Settings Saved & Reconnecting...');
+            else alert('Failed to save MQTT settings');
+        }
+
+        async function loadUsers() {
+            const resp = await fetch(API_BASE + '/users');
+            currentUsers = await resp.json();
+
+            // Stats
+            document.getElementById('stat-users').textContent = currentUsers.length;
+
+            const tbody = document.getElementById('user-list');
+            tbody.innerHTML = '';
+
+            currentUsers.forEach(u => {
+                let typeStr = 'Unlimited';
+                let limitStr = '-';
+                if (u.type === 1) { typeStr = 'Date'; limitStr = new Date(u.expiry * 1000).toLocaleDateString(); }
+                if (u.type === 2) { typeStr = 'Count'; limitStr = u.remaining + ' left'; }
+                if (u.type === 3) { typeStr = 'Guest'; limitStr = u.remaining + ' left'; }
+
+                const row = `<tr>
+                    <td>${u.name}</td>
+                    <td><span style="font-family: monospace; background: #333; padding: 2px 5px; border-radius: 3px;">${u.pin}</span></td>
+                    <td>${typeStr}</td>
+                    <td>${limitStr}</td>
+                    <td>
+                        <button class="btn btn-primary" style="padding: 2px 8px; margin-right: 5px;" onclick="editUser('${u.pin}')">✏️</button>
+                        <button class="btn btn-danger" onclick="deleteUser('${u.pin}')">×</button>
+                    </td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        async function loadLogs() {
+            const resp = await fetch(API_BASE + '/logs');
+            const logs = await resp.json();
+
+            // Stats Calculation
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayTs = today.getTime() / 1000;
+
+            const entriesToday = logs.filter(l => l.time >= todayTs && l.granted).length;
+            const failed24h = logs.filter(l => l.time >= (Date.now() / 1000 - 86400) && !l.granted).length;
+
+            document.getElementById('stat-entries').textContent = entriesToday;
+            document.getElementById('stat-failed').textContent = failed24h;
+
+            const tbody = document.getElementById('log-list');
+            tbody.innerHTML = '';
+
+            // Sort by time desc
+            logs.sort((a, b) => b.time - a.time);
+
+            logs.forEach(l => {
+                const date = new Date(l.time * 1000).toLocaleString();
+                const color = l.granted ? '#4caf50' : '#ff6b6b';
+                const row = `<tr>
+                    <td>${date}</td>
+                    <td>${l.user}</td>
+                    <td style="color: ${color}">${l.granted ? 'GRANTED' : 'DENIED'}</td>
+                    <td>${l.details}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        function toggleLimitInput() {
+            const type = document.getElementById('new-type').value;
+            const group = document.getElementById('limit-group');
+            const label = document.getElementById('limit-label');
+
+            if (type == 0 || type == 3) {
+                group.style.display = 'none';
+            } else {
+                group.style.display = 'block';
+                label.textContent = (type == 1) ? 'Days from now' : 'Access Count';
+            }
+        }
+
+        function showAddUserModal() {
+            document.getElementById('modal-title').textContent = 'Add User';
+            document.getElementById('edit-pin').value = '';
+            document.getElementById('new-name').value = '';
+            document.getElementById('new-type').value = 0;
+            document.getElementById('new-limit').value = 1;
+            document.getElementById('new-start-time').value = '';
+            document.getElementById('new-end-time').value = '';
+            document.querySelectorAll('.day-check').forEach(c => c.checked = false);
+            toggleLimitInput();
+            document.getElementById('add-modal').style.display = 'flex';
+        }
+
+        function editUser(pin) {
+            const user = currentUsers.find(u => u.pin === pin);
+            if (!user) return;
+
+            document.getElementById('modal-title').textContent = 'Edit User';
+            document.getElementById('edit-pin').value = pin;
+            document.getElementById('new-name').value = user.name;
+            document.getElementById('new-type').value = user.type;
+
+            // For limit, simplified mapping
+            document.getElementById('new-limit').value = user.remaining || 1;
+
+            // Times
+            const pad = (n) => n.toString().padStart(2, '0');
+            if (user.start || user.end) {
+                const startH = Math.floor(user.start / 60);
+                const startM = user.start % 60;
+                const endH = Math.floor(user.end / 60);
+                const endM = user.end % 60;
+                document.getElementById('new-start-time').value = `${pad(startH)}:${pad(startM)}`;
+                document.getElementById('new-end-time').value = `${pad(endH)}:${pad(endM)}`;
+            } else {
+                document.getElementById('new-start-time').value = '';
+                document.getElementById('new-end-time').value = '';
+            }
+
+            // Days
+            document.querySelectorAll('.day-check').forEach(c => {
+                c.checked = (user.days & parseInt(c.value)) !== 0;
+            });
+
+            toggleLimitInput();
+            document.getElementById('add-modal').style.display = 'flex';
+        }
+
+        function hideAddUserModal() {
+            document.getElementById('add-modal').style.display = 'none';
+        }
+
+        async function saveUser() {
+            const name = document.getElementById('new-name').value;
+            const type = parseInt(document.getElementById('new-type').value);
+            const limit = parseInt(document.getElementById('new-limit').value);
+            const editPin = document.getElementById('edit-pin').value;
+
+            if (!name) return alert('Name required');
+
+            // Schedule Processing
+            const startTimeStr = document.getElementById('new-start-time').value;
+            const endTimeStr = document.getElementById('new-end-time').value;
+
+            let startMin = 0;
+            let endMin = 0;
+            if (startTimeStr && endTimeStr) {
+                const [sh, sm] = startTimeStr.split(':').map(Number);
+                const [eh, em] = endTimeStr.split(':').map(Number);
+                startMin = sh * 60 + sm;
+                endMin = eh * 60 + em;
+            }
+
+            let dayMask = 0;
+            document.querySelectorAll('.day-check:checked').forEach(c => {
+                dayMask |= parseInt(c.value);
+            });
+
+            const method = editPin ? 'PUT' : 'POST';
+            const body = {
+                name: name,
+                type: type,
+                limit: limit,
+                start: startMin,
+                end: endMin,
+                days: dayMask
+            };
+            if (editPin) body.pin = editPin;
+
+            await fetch(API_BASE + '/users', {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            hideAddUserModal();
+            loadUsers();
+        }
+
+        function deleteUser(pin) {
+            document.getElementById('delete-user-pin').textContent = pin;
+            document.getElementById('delete-modal').style.display = 'flex';
+        }
+
+        function hideDeleteModal() {
+            document.getElementById('delete-modal').style.display = 'none';
+        }
+
+        async function confirmDeleteUser() {
+            const pin = document.getElementById('delete-user-pin').textContent;
+            await fetch(API_BASE + '/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: pin })
+            });
+            hideDeleteModal();
+            loadUsers();
+        }
+
+        async function openGate() {
+            const resp = await fetch(API_BASE + '/open', { method: 'POST' });
+            if (resp.ok) {
+                const msg = document.getElementById('gate-msg');
+                msg.style.display = 'block';
+                setTimeout(() => msg.style.display = 'none', 3000);
+            } else {
+                alert('Failed to open gate');
+            }
+        }
+
+        async function exportLogs() {
+            const resp = await fetch(API_BASE + '/logs');
+            const data = await resp.json();
+            const jsonStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gate_logs_' + new Date().getTime() + '.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+
+</html>

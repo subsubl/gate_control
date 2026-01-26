@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gate Control</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="glass-panel">
+            <div class="display">
+                <input type="password" id="pin-display" readonly placeholder="ENTER PIN">
+                <div id="status-msg"></div>
+            </div>
+            <div class="keypad">
+                <button class="key" onclick="appendPin('1')">1</button>
+                <button class="key" onclick="appendPin('2')">2</button>
+                <button class="key" onclick="appendPin('3')">3</button>
+                <button class="key" onclick="appendPin('4')">4</button>
+                <button class="key" onclick="appendPin('5')">5</button>
+                <button class="key" onclick="appendPin('6')">6</button>
+                <button class="key" onclick="appendPin('7')">7</button>
+                <button class="key" onclick="appendPin('8')">8</button>
+                <button class="key" onclick="appendPin('9')">9</button>
+                <button class="key action-key" onclick="clearPin()">C</button>
+                <button class="key" onclick="appendPin('0')">0</button>
+                <button class="key action-key enter-key" onclick="submitPin()">↵</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let pin = "";
+        const display = document.getElementById('pin-display');
+        const statusMsg = document.getElementById('status-msg');
+
+        function appendPin(digit) {
+            // User requested no length limit
+            pin += digit;
+            updateDisplay();
+        }
+
+        function clearPin() {
+            pin = "";
+            updateDisplay();
+            statusMsg.textContent = "";
+        }
+
+        function updateDisplay() {
+            // Mask the pin for security, or show asterisks
+            display.value = "*".repeat(pin.length);
+        }
+
+        async function submitPin() {
+            if (pin.length === 0) return;
+
+            try {
+                const response = await fetch('/api/access/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pin: pin })
+                });
+
+                if (response.ok) {
+                    statusMsg.textContent = "ACCESS GRANTED";
+                    statusMsg.style.color = "#4caf50"; // Green
+                    display.style.borderColor = "#4caf50";
+                    setTimeout(() => {
+                        clearPin();
+                        display.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                    }, 2000);
+                } else {
+                    // Try to parse error details
+                    let errorMsg = "ACCESS DENIED";
+                    try {
+                        const data = await response.json();
+                        if (data.status === 'locked') {
+                            errorMsg = "SYSTEM LOCKED";
+                        } else if (response.status === 403 || response.status === 401) {
+                            errorMsg = "WRONG PIN";
+                        }
+                    } catch (e) {
+                        // Fallback if no JSON
+                        if (response.status === 403) errorMsg = "SYSTEM LOCKED"; // Assumption for 403
+                    }
+
+                    statusMsg.textContent = errorMsg;
+                    statusMsg.style.color = "#f44336"; // Red
+                    display.style.borderColor = "#f44336";
+
+                    pin = "";
+                    setTimeout(() => {
+                        clearPin();
+                        display.style.borderColor = "rgba(255, 255, 255, 0.2)";
+                    }, 1500);
+                }
+            } catch (e) {
+                console.error("Submission error:", e);
+                statusMsg.textContent = "COMM ERROR";
+            }
+        }
+    </script>
+</body>
+
+</html>
