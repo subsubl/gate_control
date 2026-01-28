@@ -402,3 +402,15 @@ body.dashboard-body {
     .nav-links { flex-direction: row; }
     .sidebar-footer { display: none; }
 }
+
+/* Accessibility: Global Focus Styles */
+:focus-visible {
+    outline: 3px solid var(--accent-color);
+    outline-offset: 2px;
+}
+
+/* Adjust for keys where outline might look weird */
+.key:focus-visible {
+    outline-offset: 4px;
+    box-shadow: 0 0 15px var(--accent-color);
+}
