@@ -57,7 +57,14 @@
         async function submitPin() {
             if (pin.length === 0) return;
 
+            const submitBtn = document.querySelector('.enter-key');
+            const originalContent = submitBtn.innerHTML;
+
             try {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '⏳';
+                submitBtn.setAttribute('aria-busy', 'true');
+
                 const response = await fetch('/api/access/verify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -100,6 +107,10 @@
             } catch (e) {
                 console.error("Submission error:", e);
                 statusMsg.textContent = "COMM ERROR";
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalContent;
+                submitBtn.removeAttribute('aria-busy');
             }
         }
     </script>
