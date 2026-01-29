@@ -27,7 +27,7 @@
                 <button class="key" onclick="appendPin('9')">9</button>
                 <button class="key action-key" onclick="clearPin()" aria-label="Clear PIN">C</button>
                 <button class="key" onclick="appendPin('0')">0</button>
-                <button class="key action-key enter-key" onclick="submitPin()" aria-label="Submit PIN">↵</button>
+                <button class="key action-key enter-key" onclick="submitPin()" aria-label="Submit PIN"><span id="enter-icon">↵</span></button>
             </div>
         </div>
     </div>
@@ -56,6 +56,15 @@
 
         async function submitPin() {
             if (pin.length === 0) return;
+
+            // UX: Loading State
+            const enterIcon = document.getElementById('enter-icon');
+            const keys = document.querySelectorAll('.key');
+            const originalIcon = enterIcon.innerHTML;
+
+            // Set spinner and disable keys
+            enterIcon.innerHTML = '<div class="spinner"></div>';
+            keys.forEach(k => k.disabled = true);
 
             try {
                 const response = await fetch('/api/access/verify', {
@@ -100,6 +109,10 @@
             } catch (e) {
                 console.error("Submission error:", e);
                 statusMsg.textContent = "COMM ERROR";
+            } finally {
+                // UX: Restore State
+                enterIcon.innerHTML = originalIcon;
+                keys.forEach(k => k.disabled = false);
             }
         }
     </script>
