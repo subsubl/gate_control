@@ -115,6 +115,22 @@
                 keys.forEach(k => k.disabled = false);
             }
         }
+
+        // UX: Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            // Ignore if any modifier keys are pressed (e.g. Ctrl+R)
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            if (e.key >= '0' && e.key <= '9') {
+                appendPin(e.key);
+            } else if (e.key === 'Enter') {
+                e.preventDefault(); // Prevent default form submission if any
+                submitPin();
+            } else if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault(); // Prevent navigation back
+                clearPin();
+            }
+        });
     </script>
 </body>
 
