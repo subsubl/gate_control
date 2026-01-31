@@ -115,6 +115,23 @@
                 keys.forEach(k => k.disabled = false);
             }
         }
+
+        // UX Improvement: Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') {
+                appendPin(e.key);
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                submitPin();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                clearPin();
+            } else if (e.key === 'Backspace') {
+                e.preventDefault();
+                pin = pin.slice(0, -1);
+                updateDisplay();
+            }
+        });
     </script>
 </body>
 
