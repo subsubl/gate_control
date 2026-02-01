@@ -214,13 +214,8 @@ void handle_api_set_mqtt() {
   }
 }
 
-// Handler: Static Files
-bool handleFileRead(String path) {
-  if (path.endsWith("/"))
-    path += "index.html";
-  if (path == "/admin")
-    path += ".html";
-
+// Handler: Static Files Logic
+bool handleFileReadLogic(const String& path) {
   String contentType = "text/plain";
   if (path.endsWith(".html"))
     contentType = "text/html";
@@ -240,6 +235,15 @@ bool handleFileRead(String path) {
     return true;
   }
   return false;
+}
+
+// Handler: Static Files Wrapper (Optimization: avoid copy unless needed)
+bool handleFileRead(const String& path) {
+  if (path.endsWith("/"))
+    return handleFileReadLogic(path + "index.html");
+  if (path == "/admin")
+    return handleFileReadLogic(path + ".html");
+  return handleFileReadLogic(path);
 }
 
 void start_web_server(void) {
