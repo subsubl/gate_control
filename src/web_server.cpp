@@ -340,15 +340,22 @@ static esp_err_t static_file_handler(httpd_req_t *req) {
     httpd_resp_set_type(req, "text/html");
   }
 
-  char chunk[1024];
+  char *chunk = (char *)malloc(4096);
+  if (!chunk) {
+    ESP_LOGE(TAG, "Failed to allocate buffer");
+    fclose(f);
+    return ESP_FAIL;
+  }
   size_t chunksize;
-  while ((chunksize = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+  while ((chunksize = fread(chunk, 1, 4096, f)) > 0) {
     if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
       fclose(f);
+      free(chunk);
       return ESP_FAIL;
     }
   }
   fclose(f);
+  free(chunk);
   httpd_resp_send_chunk(req, NULL, 0);
   return ESP_OK;
 }
@@ -531,15 +538,21 @@ static esp_err_t api_download_logs_handler(httpd_req_t *req) {
   httpd_resp_set_hdr(req, "Content-Disposition",
                      "attachment; filename=\"access_history.csv\"");
 
-  char chunk[1024];
+  char *chunk = (char *)malloc(4096);
+  if (!chunk) {
+    fclose(f);
+    return ESP_FAIL;
+  }
   size_t chunksize;
-  while ((chunksize = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+  while ((chunksize = fread(chunk, 1, 4096, f)) > 0) {
     if (httpd_resp_send_chunk(req, chunk, chunksize) != ESP_OK) {
       fclose(f);
+      free(chunk);
       return ESP_FAIL;
     }
   }
   fclose(f);
+  free(chunk);
   httpd_resp_send_chunk(req, NULL, 0);
   return ESP_OK;
 }
