@@ -549,16 +549,56 @@ static esp_err_t api_get_logs_handler(httpd_req_t *req) {
   system_data_t *data = data_manager_get_data();
   cJSON *root = cJSON_CreateArray();
 
-  // Iterate circular buffer. Simplification: Just dump all non-zero logs for
-  // now
+  int limit = 20; // Default limit
+  int offset = 0; // Default offset
+
+  // Parse Query Parameters
+  size_t buf_len = httpd_req_get_url_query_len(req) + 1;
+  if (buf_len > 1) {
+    char *buf = (char *)malloc(buf_len);
+    if (buf) {
+      if (httpd_req_get_url_query_str(req, buf, buf_len) == ESP_OK) {
+        char param[32];
+        if (httpd_query_key_value(buf, "limit", param, sizeof(param)) == ESP_OK) {
+          limit = atoi(param);
+        }
+        if (httpd_query_key_value(buf, "offset", param, sizeof(param)) == ESP_OK) {
+          offset = atoi(param);
+        }
+      }
+      free(buf);
+    }
+  }
+
+  int count = 0;
+  int skipped = 0;
+
+  // Capture head to avoid race condition during iteration
+  int head = data->log_head;
+
+  // Iterate circular buffer (Newest First)
   for (int i = 0; i < MAX_LOGS; i++) {
-    if (data->logs[i].timestamp != 0) {
+    int idx = (head - 1 - i + MAX_LOGS) % MAX_LOGS;
+
+    if (data->logs[idx].timestamp == 0) {
+      break; // End of valid data
+    }
+
+    if (skipped < offset) {
+      skipped++;
+      continue;
+    }
+
+    if (count < limit) {
       cJSON *log = cJSON_CreateObject();
-      cJSON_AddNumberToObject(log, "time", data->logs[i].timestamp);
-      cJSON_AddStringToObject(log, "user", data->logs[i].user_name);
-      cJSON_AddBoolToObject(log, "granted", data->logs[i].granted);
-      cJSON_AddStringToObject(log, "details", data->logs[i].details);
+      cJSON_AddNumberToObject(log, "time", data->logs[idx].timestamp);
+      cJSON_AddStringToObject(log, "user", data->logs[idx].user_name);
+      cJSON_AddBoolToObject(log, "granted", data->logs[idx].granted);
+      cJSON_AddStringToObject(log, "details", data->logs[idx].details);
       cJSON_AddItemToArray(root, log);
+      count++;
+    } else {
+      break;
     }
   }
 
