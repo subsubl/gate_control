@@ -24,7 +24,7 @@ mqtt_client = None
 
 # Mock Database
 # Mock Database
-users = []
+users = {}
 logs = []
 
 # Security State
@@ -45,7 +45,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         final_path = res
         if not relpath.startswith('data'):
              final_path = os.path.join(DATA_DIR, os.path.basename(res))
-        
+
         print(f"DEBUG: Request={path} Orig={res} Rel={relpath} Final={final_path}")
         return final_path
 
@@ -54,7 +54,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            self.wfile.write(json.dumps(users).encode())
+            self.wfile.write(json.dumps(list(users.values())).encode())
             return
         elif self.path.startswith('/api/admin/logs'):
             self.send_response(200)
@@ -72,13 +72,13 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 csv_data += f"{log['time']},{log['user']},{log['granted']},{log['details']}\n"
             self.wfile.write(csv_data.encode())
             return
-        
+
         # Default file serving
         if self.path == '/':
             self.path = '/index.html'
         elif self.path == '/admin':
             self.path = '/admin.html'
-            
+
         return super().do_GET()
 
     def do_POST(self):
@@ -94,14 +94,14 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_json({'status': 'ok'})
             else:
                 self.send_error(401, 'Invalid password')
-        
+
         elif self.path == '/api/access/verify':
             pin = data.get('pin')
 
             # Mock Brute Force Protection
             global failed_attempts, lockout_timestamp
             current_time = int(time.time())
-            
+
             if lockout_timestamp > 0:
                 if current_time < lockout_timestamp:
                     self.send_response(403)
@@ -114,7 +114,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     failed_attempts = 0
 
             # Validate against users
-            user = next((u for u in users if u['pin'] == pin), None)
+            user = users.get(pin)
             valid = (user is not None)
             u = user
 
@@ -141,18 +141,18 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             # Check Schedule
             if valid:
                 current_struct = time.localtime(current_time)
-                
+
                 # Check Days
                 allowed_days = u.get('days', 0)
                 if allowed_days != 0:
                     bit_idx = (current_struct.tm_wday + 1) % 7
                     if not (allowed_days & (1 << bit_idx)):
                         valid = False
-                
+
                 # Check Time Window
                 start_time = u.get('start', 0)
                 end_time = u.get('end', 0)
-                
+
                 if start_time != end_time:
                     current_mins = current_struct.tm_hour * 60 + current_struct.tm_min
                     in_window = False
@@ -162,7 +162,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     else: # Crossover
                         if current_mins >= start_time or current_mins < end_time:
                             in_window = True
-                    
+
                     if not in_window:
                         valid = False
 
@@ -175,7 +175,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                     u['remaining'] = remaining - 1
                     if u['type'] == 3 and u['remaining'] == 0:
                         # Deactivate/Remove OTP user
-                        users.remove(u)
+                        del users[u['pin']]
 
             log_entry = {
                 'time': current_time,
@@ -184,7 +184,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 'details': 'Access Granted' if valid else 'Denied (Schedule/PIN)'
             }
             logs.insert(0, log_entry)
-            
+
             if valid:
                 self.send_json({'status': 'granted'})
             else:
@@ -204,9 +204,9 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
             def generate_pin():
                 while True:
                     p = str(random.randint(10000, 99999))
-                    if not any(u['pin'] == p for u in users):
+                    if p not in users:
                         return p
-            
+
             new_user = {
                 'name': data.get('name'),
                 'pin': generate_pin(),
@@ -217,7 +217,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 'end': data.get('end', 0),
                 'days': data.get('days', 0)
             }
-            users.append(new_user)
+            users[new_user['pin']] = new_user
             self.send_json({'status': 'ok', 'pin': new_user['pin']}) # Return PIN so UI can show it if needed
 
         elif self.path == '/api/admin/mqtt':
@@ -234,9 +234,9 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 if 'uri' in data: MQTT_BROKER = data['uri'].replace("mqtt://", "") # Paho needs host, not URI
                 if 'cmd_topic' in data: MQTT_TOPIC_CMD = data['cmd_topic']
                 if 'status_topic' in data: MQTT_TOPIC_STATUS = data['status_topic']
-                
+
                 print(f"MQTT Config Updated: Broker={MQTT_BROKER}, Cmd={MQTT_TOPIC_CMD}")
-                
+
                 # Restart MQTT
                 restart_mqtt()
                 self.send_json({'status': 'ok'})
@@ -252,13 +252,11 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
              body = self.rfile.read(length).decode()
              data = json.loads(body)
              pin_to_del = data.get('pin')
-             
+
              print(f"Deleting user pin: {pin_to_del}")
-             global users
-             initial_len = len(users)
-             users = [u for u in users if u['pin'] != pin_to_del]
-             
-             if len(users) < initial_len:
+
+             if pin_to_del in users:
+                 del users[pin_to_del]
                  self.send_json({'status': 'ok'})
              else:
                  self.send_error(404, 'User not found')
@@ -269,23 +267,18 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
              length = int(self.headers.get('content-length', 0))
              body = self.rfile.read(length).decode()
              data = json.loads(body)
-             
+
              pin = data.get('pin')
              print(f"Updating user pin: {pin}")
-             
-             updated = False
-             for u in users:
-                 if u['pin'] == pin:
-                     u['name'] = data.get('name', u['name'])
-                     u['type'] = data.get('type', u['type'])
-                     u['remaining'] = data.get('limit', u['remaining'])
-                     u['start'] = data.get('start', u['start'])
-                     u['end'] = data.get('end', u['end'])
-                     u['days'] = data.get('days', u['days'])
-                     updated = True
-                     break
-             
-             if updated:
+
+             if pin in users:
+                 u = users[pin]
+                 u['name'] = data.get('name', u['name'])
+                 u['type'] = data.get('type', u['type'])
+                 u['remaining'] = data.get('limit', u['remaining'])
+                 u['start'] = data.get('start', u['start'])
+                 u['end'] = data.get('end', u['end'])
+                 u['days'] = data.get('days', u['days'])
                  self.send_json({'status': 'ok'})
              else:
                  self.send_error(404, 'User not found')
@@ -302,7 +295,7 @@ def start_mqtt():
         return
 
     global mqtt_client, MQTT_BROKER, MQTT_TOPIC_CMD, MQTT_TOPIC_STATUS
-    
+
     def on_connect(client, userdata, flags, rc, properties=None):
         print(f"MQTT Connected (rc={rc})")
         client.subscribe(MQTT_TOPIC_CMD)
@@ -342,7 +335,7 @@ def restart_mqtt():
             mqtt_client.loop_stop()
             mqtt_client.disconnect()
         start_mqtt()
-    
+
     threading.Thread(target=_restart, daemon=True).start()
 
 if __name__ == "__main__":
@@ -350,9 +343,9 @@ if __name__ == "__main__":
     class ThreadingHTTPServer(socketserver.ThreadingTCPServer):
         allow_reuse_address = True
         address_family = socket.AF_INET # Force IPv4
-    
+
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
-    
+
     threading.Thread(target=start_mqtt, daemon=True).start()
 
     try:
