@@ -91,14 +91,6 @@ void wifi_init_sta(void) {
   ESP_LOGI(TAG, "WiFi mode set to STA, attempting to connect to %s",
            EXAMPLE_ESP_WIFI_SSID);
 
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    ESP_LOGI(TAG, "Connecting to WiFi... Status: %d", WiFi.status());
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    print_wifi_status();
-  }
 }
 
 #ifndef ARDUINO
@@ -193,6 +185,20 @@ void setup(void) {
 }
 
 void loop() {
+  // Handle WiFi connection logging
+  static bool wifi_connected_flag = false;
+  if (WiFi.status() == WL_CONNECTED) {
+    if (!wifi_connected_flag) {
+      wifi_connected_flag = true;
+      print_wifi_status();
+    }
+  } else {
+    wifi_connected_flag = false;
+  }
+
+  // Handle MQTT
+  mqtt_manager_loop();
+
   static unsigned long last_debug_time = 0;
   if (millis() - last_debug_time > 5000) {
     last_debug_time = millis();
