@@ -91,7 +91,7 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-.key:active {
+.key:active, .key.pressed {
     background: var(--key-hover);
     transform: scale(0.95);
     box-shadow: 0 0 10px var(--accent-color);

@@ -13,7 +13,7 @@
         <div class="glass-panel">
             <div class="display">
                 <input type="password" id="pin-display" readonly placeholder="ENTER PIN" aria-label="PIN Display">
-                <div id="status-msg"></div>
+                <div id="status-msg" aria-live="polite"></div>
             </div>
             <div class="keypad">
                 <button class="key" onclick="appendPin('1')">1</button>
@@ -53,6 +53,27 @@
             // Mask the pin for security, or show asterisks
             display.value = "*".repeat(pin.length);
         }
+
+        // Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            let btn = null;
+
+            if (key >= '0' && key <= '9') {
+                btn = Array.from(document.querySelectorAll('.key')).find(b => b.textContent.trim() === key);
+            } else if (key === 'Enter') {
+                e.preventDefault();
+                btn = document.querySelector('.enter-key');
+            } else if (key === 'Escape' || key === 'Backspace') {
+                btn = Array.from(document.querySelectorAll('.key')).find(b => b.textContent.trim() === 'C');
+            }
+
+            if (btn && !btn.disabled) {
+                btn.click();
+                btn.classList.add('pressed');
+                setTimeout(() => btn.classList.remove('pressed'), 100);
+            }
+        });
 
         async function submitPin() {
             if (pin.length === 0) return;
