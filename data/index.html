@@ -13,7 +13,7 @@
         <div class="glass-panel">
             <div class="display">
                 <input type="password" id="pin-display" readonly placeholder="ENTER PIN" aria-label="PIN Display">
-                <div id="status-msg"></div>
+                <div id="status-msg" aria-live="polite"></div>
             </div>
             <div class="keypad">
                 <button class="key" onclick="appendPin('1')">1</button>
@@ -52,6 +52,47 @@
         function updateDisplay() {
             // Mask the pin for security, or show asterisks
             display.value = "*".repeat(pin.length);
+        }
+
+        // Keyboard Support
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            let handled = false;
+            const key = e.key;
+
+            if (key >= '0' && key <= '9') {
+                findAndClickKey(key);
+                handled = true;
+            } else if (key === 'Backspace' || key === 'Delete' || key === 'Escape') {
+                findAndClickSelector('.action-key[onclick="clearPin()"]');
+                handled = true;
+            } else if (key === 'Enter') {
+                findAndClickSelector('.enter-key');
+                handled = true;
+            }
+
+            if (handled) {
+                e.preventDefault();
+            }
+        });
+
+        function findAndClickKey(text) {
+            const keys = Array.from(document.querySelectorAll('.key'));
+            const target = keys.find(k => k.textContent.trim() === text);
+            if (target) animateAndClick(target);
+        }
+
+        function findAndClickSelector(selector) {
+            const target = document.querySelector(selector);
+            if (target) animateAndClick(target);
+        }
+
+        function animateAndClick(el) {
+            if (el.disabled) return;
+            el.classList.add('pressed');
+            el.click();
+            setTimeout(() => el.classList.remove('pressed'), 150);
         }
 
         async function submitPin() {
