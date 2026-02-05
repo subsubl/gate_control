@@ -5,3 +5,7 @@
 ## 2024-10-27 - [Sidebar Navigation Semantics]
 **Learning:** This app uses `onclick` on `div` elements for sidebar navigation, which breaks keyboard accessibility.
 **Action:** Convert sidebar `div`s to `<button>` elements and apply CSS resets (`background: none; border: none; width: 100%; text-align: left;`) to maintain the design while gaining native accessibility.
+
+## 2024-10-27 - [Virtual Keypad Accessibility]
+**Learning:** Virtual keypads relying solely on click handlers are inaccessible to keyboard users and lack native feel.
+**Action:** Always implement a `keydown` listener that maps physical keys to the virtual buttons, triggering both the logic and the visual active state.
