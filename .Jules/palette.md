@@ -9,3 +9,7 @@
 ## 2024-10-27 - [Virtual Keypad Accessibility]
 **Learning:** Virtual keypads relying solely on click handlers are inaccessible to keyboard users and lack native feel.
 **Action:** Always implement a `keydown` listener that maps physical keys to the virtual buttons, triggering both the logic and the visual active state.
+
+## 2026-02-05 - [Async Focus Management]
+**Learning:** Disabling inputs during async operations (like login) prevents double-submission but can trap focus or prevent programmatic focusing if not re-enabled first.
+**Action:** Always ensure elements are re-enabled before attempting to `.focus()` them in error handling or finalization blocks.

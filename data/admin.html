@@ -12,7 +12,7 @@
     <div id="login-overlay">
         <div class="glass-panel" style="text-align: center;">
             <h2 style="color: var(--accent-color);">Admin Login</h2>
-            <input type="password" id="admin-pass" placeholder="Password"
+            <input type="password" id="admin-pass" placeholder="Password" aria-label="Admin Password"
                 style="width: 200px; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #222; color: white;">
             <br><br>
             <button class="btn btn-primary" onclick="login()">Login</button>
@@ -231,17 +231,46 @@
         const API_BASE = '/api/admin';
         let currentUsers = [];
 
+        // Login on Enter key
+        document.getElementById('admin-pass').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') login();
+        });
+
         async function login() {
-            const pass = document.getElementById('admin-pass').value;
-            const resp = await fetch('/api/auth/login', {
-                method: 'POST',
-                body: JSON.stringify({ password: pass })
-            });
-            if (resp.ok) {
-                document.getElementById('login-overlay').style.display = 'none';
-                loadData();
-            } else {
-                document.getElementById('login-error').textContent = 'Invalid Password';
+            const passInput = document.getElementById('admin-pass');
+            const btn = document.querySelector('#login-overlay button');
+            const errorMsg = document.getElementById('login-error');
+
+            passInput.disabled = true;
+            btn.disabled = true;
+            const originalText = btn.textContent;
+            btn.innerHTML = '<span class="spinner" style="width: 12px; height: 12px; border-width: 2px;"></span> Login';
+            errorMsg.textContent = '';
+
+            let success = false;
+
+            try {
+                const resp = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    body: JSON.stringify({ password: passInput.value })
+                });
+                if (resp.ok) {
+                    success = true;
+                    document.getElementById('login-overlay').style.display = 'none';
+                    passInput.value = ''; // Clear password for security
+                    loadData();
+                } else {
+                    errorMsg.textContent = 'Invalid Password';
+                }
+            } catch (e) {
+                errorMsg.textContent = 'Connection Error';
+            } finally {
+                passInput.disabled = false;
+                btn.disabled = false;
+                btn.textContent = originalText;
+                if (!success) {
+                    passInput.focus();
+                }
             }
         }
 
