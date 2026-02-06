@@ -120,21 +120,17 @@ void handle_api_add_user() {
   int typeInt = doc["type"];
   int limit = doc["limit"];
 
-  if (data_manager_add_user(name, (user_type_t)typeInt, limit)) {
+  int idx = data_manager_add_user(name, (user_type_t)typeInt, limit);
+  if (idx >= 0) {
     // Schedule update logic
     system_data_t *data = data_manager_get_data();
-    for (int i = 0; i < MAX_USERS; i++) {
-      if (data->users[i].active && strcmp(data->users[i].name, name) == 0) {
-        if (!doc["start"].isNull())
-          data->users[i].start_time = doc["start"];
-        if (!doc["end"].isNull())
-          data->users[i].end_time = doc["end"];
-        if (!doc["days"].isNull())
-          data->users[i].allowed_days = doc["days"];
-        data_manager_save();
-        break;
-      }
-    }
+    if (!doc["start"].isNull())
+      data->users[idx].start_time = doc["start"];
+    if (!doc["end"].isNull())
+      data->users[idx].end_time = doc["end"];
+    if (!doc["days"].isNull())
+      data->users[idx].allowed_days = doc["days"];
+    data_manager_save();
     server.send(200, "application/json", "{\"status\":\"ok\"}");
   } else {
     server.send(500, "application/json", "{\"error\":\"Failed to add user\"}");
@@ -465,30 +461,18 @@ static esp_err_t api_add_user_handler(httpd_req_t *req) {
   cJSON *end = cJSON_GetObjectItem(json, "end");
   cJSON *days = cJSON_GetObjectItem(json, "days");
 
-  if (data_manager_add_user(name->valuestring, type->valueint,
-                            limit ? limit->valueint : 0)) {
+  int idx = data_manager_add_user(name->valuestring, type->valueint,
+                                  limit ? limit->valueint : 0);
+  if (idx >= 0) {
     // Set Schedule if provided
     system_data_t *data = data_manager_get_data();
-    // Since add_user adds to next slot, we find the user by name to update
-    // schedule Inoptimal but simple for prototype: iterate and match name + pin
-    // just generated? Actually data_manager_add_user returns bool. Let's modify
-    // data_manager_add_user or just set it manually here by finding the last
-    // added? Or better: update data_manager_add_user to accept these? For
-    // minimal changes: find the user we just added. Assumption: Last active
-    // user? Or searching by name.
-    for (int i = 0; i < MAX_USERS; i++) {
-      if (data->users[i].active &&
-          strcmp(data->users[i].name, name->valuestring) == 0) {
-        if (start)
-          data->users[i].start_time = start->valueint;
-        if (end)
-          data->users[i].end_time = end->valueint;
-        if (days)
-          data->users[i].allowed_days = days->valueint;
-        data_manager_save();
-        break;
-      }
-    }
+    if (start)
+      data->users[idx].start_time = start->valueint;
+    if (end)
+      data->users[idx].end_time = end->valueint;
+    if (days)
+      data->users[idx].allowed_days = days->valueint;
+    data_manager_save();
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
   } else {
     httpd_resp_send_500(req);

@@ -45,7 +45,7 @@ typedef struct {
 void data_manager_init(void);
 void data_manager_save(void);
 bool data_manager_validate_pin(const char *pin, char *user_name_out);
-bool data_manager_add_user(const char *name, user_type_t type, int limit); // limit is either count or days
+int data_manager_add_user(const char *name, user_type_t type, int limit); // returns index of user or -1 on failure
 bool data_manager_delete_user(const char *pin);
 void data_manager_log_access(const char *name, bool granted, const char *details);
 system_data_t *data_manager_get_data(void);

@@ -96,7 +96,7 @@ char *data_manager_generate_pin(void) {
   return pin_buf;
 }
 
-bool data_manager_add_user(const char *name, user_type_t type, int limit) {
+int data_manager_add_user(const char *name, user_type_t type, int limit) {
   // Find empty slot
   int slot = -1;
   for (int i = 0; i < MAX_USERS; i++) {
@@ -108,7 +108,7 @@ bool data_manager_add_user(const char *name, user_type_t type, int limit) {
 
   if (slot == -1) {
     ESP_LOGE(TAG, "User list full");
-    return false;
+    return -1;
   }
 
   user_t *u = &sys_data.users[slot];
@@ -130,7 +130,7 @@ bool data_manager_add_user(const char *name, user_type_t type, int limit) {
   sys_data.user_count++;
   data_manager_save();
   ESP_LOGI(TAG, "User added: %s (PIN: %s)", u->name, u->pin);
-  return true;
+  return slot;
 }
 
 bool data_manager_delete_user(const char *pin) {
