@@ -3,9 +3,8 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include <LittleFS.h>
-#include <NTPClient.h>
 #include <PubSubClient.h>
-#include <WiFiUdp.h>
+#include <time.h>
 
 #else
 #include "driver/gpio.h"
@@ -103,19 +102,25 @@ void wifi_init_sta(void) {
 
 #ifndef ARDUINO
 #include "esp_sntp.h"
+#endif
 
 void init_sntp(void) {
+#ifdef ARDUINO
+  Serial.println("Initializing SNTP");
+  configTime(0, 0, "pool.ntp.org");
+#else
   ESP_LOGI(TAG, "Initializing SNTP");
   esp_sntp_setoperatingmode(SNTP_OPMODE_POLL);
   esp_sntp_setservername(0, "pool.ntp.org");
   esp_sntp_init();
+#endif
 
   // Set timezone to CET/CEST (Central Europe)
   // Rule: CET-1CEST,M3.5.0,M10.5.0/3
   setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1);
   tzset();
 }
-#endif
+
 
 #ifndef ARDUINO
 void init_spiffs(void) {
@@ -183,7 +188,8 @@ void setup(void) {
   ESP_LOGI(TAG, "ESP_WIFI_MODE_STA");
   wifi_init_sta();
 
-  // Initialize SNTP - skip for now
+  // Initialize SNTP
+  init_sntp();
 
   // Start Web Server
   start_web_server();
