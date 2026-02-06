@@ -13,3 +13,7 @@
 ## 2026-02-05 - [Async Focus Management]
 **Learning:** Disabling inputs during async operations (like login) prevents double-submission but can trap focus or prevent programmatic focusing if not re-enabled first.
 **Action:** Always ensure elements are re-enabled before attempting to `.focus()` them in error handling or finalization blocks.
+
+## 2026-02-06 - [Modal Focus Traps]
+**Learning:** Modals triggered by buttons often leave focus on the trigger (or lost) when opened, and fail to restore it when closed, disrupting keyboard navigation flow.
+**Action:** Implement `lastFocusedElement` capture before opening, focus the primary action/input inside the modal, and restore focus to `lastFocusedElement` upon closing.

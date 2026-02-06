@@ -230,10 +230,22 @@
     <script>
         const API_BASE = '/api/admin';
         let currentUsers = [];
+        let lastFocusedElement = null;
 
         // Login on Enter key
         document.getElementById('admin-pass').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') login();
+        });
+
+        // Global Escape Listener to close modals
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (document.getElementById('add-modal').style.display === 'flex') {
+                    hideAddUserModal();
+                } else if (document.getElementById('delete-modal').style.display === 'flex') {
+                    hideDeleteModal();
+                }
+            }
         });
 
         async function login() {
@@ -397,6 +409,7 @@
         }
 
         function showAddUserModal() {
+            lastFocusedElement = document.activeElement;
             document.getElementById('modal-title').textContent = 'Add User';
             document.getElementById('edit-pin').value = '';
             document.getElementById('new-name').value = '';
@@ -407,11 +420,15 @@
             document.querySelectorAll('.day-check').forEach(c => c.checked = false);
             toggleLimitInput();
             document.getElementById('add-modal').style.display = 'flex';
+            // Move focus to first input
+            document.getElementById('new-name').focus();
         }
 
         function editUser(pin) {
             const user = currentUsers.find(u => u.pin === pin);
             if (!user) return;
+
+            lastFocusedElement = document.activeElement;
 
             document.getElementById('modal-title').textContent = 'Edit User';
             document.getElementById('edit-pin').value = pin;
@@ -442,10 +459,15 @@
 
             toggleLimitInput();
             document.getElementById('add-modal').style.display = 'flex';
+            document.getElementById('new-name').focus();
         }
 
         function hideAddUserModal() {
             document.getElementById('add-modal').style.display = 'none';
+            if (lastFocusedElement) {
+                lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
         }
 
         async function saveUser() {
@@ -496,12 +518,20 @@
         }
 
         function deleteUser(pin) {
+            lastFocusedElement = document.activeElement;
             document.getElementById('delete-user-pin').textContent = pin;
             document.getElementById('delete-modal').style.display = 'flex';
+            // Focus cancel button
+            const cancelBtn = document.querySelector('#delete-modal .btn:not(.btn-danger)');
+            if (cancelBtn) cancelBtn.focus();
         }
 
         function hideDeleteModal() {
             document.getElementById('delete-modal').style.display = 'none';
+            if (lastFocusedElement) {
+                lastFocusedElement.focus();
+                lastFocusedElement = null;
+            }
         }
 
         async function confirmDeleteUser() {
