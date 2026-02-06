@@ -16,9 +16,21 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef DATA_FILE_PATH
+#define DATA_FILE_PATH "/spiffs/data.bin"
+#endif
+
+#ifndef LOG_FILE_PATH
+#define LOG_FILE_PATH "/spiffs/access.log"
+#endif
+
+#ifndef LOG_FILE_BAK_PATH
+#define LOG_FILE_BAK_PATH "/spiffs/access.log.bak"
+#endif
+
 static const char *TAG = "DATA_MANAGER";
 static system_data_t sys_data;
-static const char *DATA_FILE = "/spiffs/data.bin";
+static const char *DATA_FILE = DATA_FILE_PATH;
 
 void data_manager_init(void) {
   ESP_LOGI(TAG, "Initializing Data Manager...");
@@ -296,21 +308,37 @@ void log_to_file(long timestamp, const char *user, bool granted,
   }
 
 #else
+  static FILE *log_file = NULL;
+
+  if (log_file == NULL) {
+    log_file = fopen(LOG_FILE_PATH, "a");
+  }
+
   // Check file size and rotate if needed
-  struct stat st;
-  if (stat("/spiffs/access.log", &st) == 0) {
-    if (st.st_size > 50 * 1024) { // 50KB limit
+  if (log_file) {
+    long size = -1;
+    if (fseek(log_file, 0, SEEK_END) == 0) {
+      size = ftell(log_file);
+    }
+
+    // If fseek/ftell failed or size > limit
+    if (size > 50 * 1024) { // 50KB limit
+      fclose(log_file);
+      log_file = NULL;
+
       ESP_LOGI(TAG, "Log file full, rotating...");
-      unlink("/spiffs/access.log.bak");
-      rename("/spiffs/access.log", "/spiffs/access.log.bak");
+      unlink(LOG_FILE_BAK_PATH);
+      rename(LOG_FILE_PATH, LOG_FILE_BAK_PATH);
+
+      // Reopen
+      log_file = fopen(LOG_FILE_PATH, "a");
     }
   }
 
-  FILE *f = fopen("/spiffs/access.log", "a");
-  if (f) {
+  if (log_file) {
     // CSV Format: Timestamp,User,Granted,Details
-    fprintf(f, "%ld,%s,%d,%s\n", timestamp, user, granted, details);
-    fclose(f);
+    fprintf(log_file, "%ld,%s,%d,%s\n", timestamp, user, granted, details);
+    fflush(log_file);
   } else {
     ESP_LOGE(TAG, "Failed to write to access.log");
   }
