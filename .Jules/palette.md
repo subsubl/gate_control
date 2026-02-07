@@ -13,3 +13,7 @@
 ## 2026-02-05 - [Async Focus Management]
 **Learning:** Disabling inputs during async operations (like login) prevents double-submission but can trap focus or prevent programmatic focusing if not re-enabled first.
 **Action:** Always ensure elements are re-enabled before attempting to `.focus()` them in error handling or finalization blocks.
+
+## 2026-02-07 - [Explicit Form Label Association]
+**Learning:** Implicit label wrapping is valid but explicit `for` attribute association is more robust for screen readers and styling hooks.
+**Action:** Always ensure `<label>` elements have a `for` attribute matching the input's `id`, even when visual layout makes the relationship obvious.
