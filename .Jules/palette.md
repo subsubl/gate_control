@@ -13,3 +13,7 @@
 ## 2026-02-05 - [Async Focus Management]
 **Learning:** Disabling inputs during async operations (like login) prevents double-submission but can trap focus or prevent programmatic focusing if not re-enabled first.
 **Action:** Always ensure elements are re-enabled before attempting to `.focus()` them in error handling or finalization blocks.
+
+## 2026-02-08 - [Modal Interaction Pattern]
+**Learning:** Simple CSS modals (`display: flex/none`) lack native accessibility features like focus trapping or keyboard dismissal.
+**Action:** Always attach a global `keydown` listener for `Escape` to close modals, a scoped `keydown` listener for `Enter` to submit forms, and programmatic focus (`.focus()`) to the first input when opening.
