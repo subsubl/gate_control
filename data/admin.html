@@ -407,6 +407,7 @@
             document.querySelectorAll('.day-check').forEach(c => c.checked = false);
             toggleLimitInput();
             document.getElementById('add-modal').style.display = 'flex';
+            setTimeout(() => document.getElementById('new-name').focus(), 50);
         }
 
         function editUser(pin) {
@@ -538,6 +539,23 @@
             a.click();
             URL.revokeObjectURL(url);
         }
+
+        // UX: Modal Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideAddUserModal();
+                hideDeleteModal();
+            }
+        });
+
+        document.getElementById('add-modal').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const tag = e.target.tagName;
+                if (tag === 'INPUT' || tag === 'SELECT') {
+                    saveUser();
+                }
+            }
+        });
     </script>
 </body>
 
