@@ -209,10 +209,15 @@ void loop() {
         ip.c_str(), rssi, free_heap);
 
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println(
-          "[WARN] WiFi lost! Attempting reconnect in loop if needed...");
-      // Logic to reconnect if needed could go here, though ESP8266/ESP32
-      // usually auto-reconnects
+      static unsigned long last_reconnect_attempt = 0;
+      unsigned long now = millis();
+      if (now - last_reconnect_attempt > 30000) {
+        last_reconnect_attempt = now;
+        Serial.println(
+            "[WARN] WiFi lost! Attempting to reconnect...");
+        WiFi.disconnect();
+        WiFi.begin(EXAMPLE_ESP_WIFI_SSID, EXAMPLE_ESP_WIFI_PASS);
+      }
     }
   }
 
