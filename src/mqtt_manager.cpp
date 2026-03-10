@@ -2,6 +2,11 @@
 #ifdef ARDUINO
 #include <PubSubClient.h>
 #include <WiFiClient.h>
+#ifdef ESP8266
+#include <ESP8266WiFi.h>
+#elif defined(ESP32)
+#include <WiFi.h>
+#endif
 #else
 #include "esp_log.h"
 #include "mqtt_client.h"
@@ -33,6 +38,14 @@ typedef struct {
 } mqtt_config_t;
 
 static mqtt_config_t mqtt_config;
+
+#ifdef ARDUINO
+String get_mqtt_client_id() {
+  String id = "Gate-";
+  id += WiFi.macAddress();
+  return id;
+}
+#endif
 
 void mqtt_load_config(void) {
 #ifdef ARDUINO
@@ -98,7 +111,7 @@ void mqtt_manager_update_config(const char *uri, const char *cmd,
     client.disconnect();
   }
   client.setServer(new_cfg.broker_uri, 1883);
-  if (client.connect("ESP8266Client")) {
+  if (client.connect(get_mqtt_client_id().c_str())) {
     client.subscribe(new_cfg.topic_cmd);
     client.publish(new_cfg.topic_status, "ONLINE");
   }
@@ -176,7 +189,7 @@ void mqtt_manager_init(void) {
   mqtt_load_config();
   client.setServer(mqtt_config.broker_uri, 1883);
   client.setCallback(mqtt_callback);
-  if (client.connect("ESP8266Client")) {
+  if (client.connect(get_mqtt_client_id().c_str())) {
     ESP_LOGI(TAG, "MQTT Connected");
     client.subscribe(mqtt_config.topic_cmd);
     client.publish(mqtt_config.topic_status, "ONLINE");
@@ -205,6 +218,31 @@ void mqtt_manager_publish_status(const char *status) {
 #else
   if (client) {
     esp_mqtt_client_publish(client, mqtt_config.topic_status, status, 0, 0, 0);
+  }
+#endif
+}
+
+void mqtt_manager_loop(void) {
+#ifdef ARDUINO
+  if (!client.connected()) {
+    static unsigned long last_reconnect = 0;
+    unsigned long now = millis();
+    if (now - last_reconnect > 5000) {
+      last_reconnect = now;
+      if (WiFi.status() == WL_CONNECTED) {
+        ESP_LOGI(TAG, "Attempting MQTT Reconnect...");
+        // Re-load config or use existing? Existing is in mqtt_config
+        // Re-set server just in case?
+        client.setServer(mqtt_config.broker_uri, 1883);
+        if (client.connect(get_mqtt_client_id().c_str())) {
+          ESP_LOGI(TAG, "MQTT Connected");
+          client.subscribe(mqtt_config.topic_cmd);
+          client.publish(mqtt_config.topic_status, "ONLINE");
+        }
+      }
+    }
+  } else {
+    client.loop();
   }
 #endif
 }
