@@ -332,7 +332,7 @@ void data_manager_log_access(const char *name, bool granted,
   sys_data.log_head = (sys_data.log_head + 1) % MAX_LOGS;
 
   // Save RAM state (Users + Recent Logs)
-  data_manager_save();
+  // data_manager_save(); // Optimized: Avoid flash wear. Rely on log_to_file for history.
 
   // Persist to File (History)
   log_to_file(tv.tv_sec, name, granted, details);
