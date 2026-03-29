@@ -290,9 +290,43 @@ void web_server_loop(void) { server.handleClient(); }
 #include <esp_log.h>
 #include <esp_spiffs.h>
 #include <mbedtls/md.h>
+#include <esp_system.h>
+#include <time.h>
 
 static const char *TAG = "WEB_SERVER";
 static httpd_handle_t server = NULL;
+
+// Session Management
+static char session_token[33] = {0};
+static time_t session_expiry = 0;
+
+// Helper to generate session token
+static void generate_session_token() {
+  for (int i = 0; i < 16; i++) {
+    sprintf(session_token + (i * 2), "%02x", (unsigned int)(esp_random() & 0xFF));
+  }
+  session_token[32] = 0;
+  session_expiry = time(NULL) + 3600; // 1 hour
+}
+
+// Helper to check authentication
+static bool is_authenticated(httpd_req_t *req) {
+  size_t buf_len = httpd_req_get_hdr_value_len(req, "Cookie") + 1;
+  if (buf_len > 1) {
+    char *buf = (char *)malloc(buf_len);
+    if (buf && httpd_req_get_hdr_value(req, "Cookie", buf, buf_len) == ESP_OK) {
+      char expected[64];
+      snprintf(expected, sizeof(expected), "SESSION_ID=%s", session_token);
+      if (session_token[0] != 0 && strstr(buf, expected) && time(NULL) < session_expiry) {
+        free(buf);
+        return true;
+      }
+    }
+    if (buf)
+      free(buf);
+  }
+  return false;
+}
 
 // Helper to calculate SHA256 of input
 void sha256_string(const char *str, char outputBuffer[65]) {
@@ -412,8 +446,12 @@ static esp_err_t api_login_handler(httpd_req_t *req) {
   cJSON_Delete(json);
 
   if (strcmp(hash, ADMIN_PASS_HASH) == 0) {
-    // Set a simple cookie or token logic. For simplicity, we just return OK and
-    // client stores a flag.
+    // Generate token and set cookie
+    generate_session_token();
+    char cookie_val[100];
+    snprintf(cookie_val, sizeof(cookie_val), "SESSION_ID=%s; Path=/; HttpOnly; Max-Age=3600",
+             session_token);
+    httpd_resp_set_hdr(req, "Set-Cookie", cookie_val);
     httpd_resp_sendstr(req, "{\"status\":\"ok\"}");
   } else {
     httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Invalid password");
@@ -423,6 +461,10 @@ static esp_err_t api_login_handler(httpd_req_t *req) {
 
 // API: Get Users
 static esp_err_t api_get_users_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   system_data_t *data = data_manager_get_data();
   cJSON *root = cJSON_CreateArray();
 
@@ -449,6 +491,10 @@ static esp_err_t api_get_users_handler(httpd_req_t *req) {
 
 // API: Add User
 static esp_err_t api_add_user_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   char buf[200];
   int ret, remaining = req->content_len;
   if (remaining >= sizeof(buf))
@@ -499,6 +545,10 @@ static esp_err_t api_add_user_handler(httpd_req_t *req) {
 
 // API: Delete User
 static esp_err_t api_delete_user_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   char buf[100];
   int ret, remaining = req->content_len;
   if (remaining >= sizeof(buf))
@@ -521,6 +571,10 @@ static esp_err_t api_delete_user_handler(httpd_req_t *req) {
 
 // API: Download Log File
 static esp_err_t api_download_logs_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   FILE *f = fopen("/spiffs/access.log", "r");
   if (f == NULL) {
     httpd_resp_send_404(req);
@@ -546,6 +600,10 @@ static esp_err_t api_download_logs_handler(httpd_req_t *req) {
 
 // API: Get Logs
 static esp_err_t api_get_logs_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   system_data_t *data = data_manager_get_data();
   cJSON *root = cJSON_CreateArray();
 
@@ -572,12 +630,20 @@ static esp_err_t api_get_logs_handler(httpd_req_t *req) {
 
 // API: Open Gate (Direct Control)
 static esp_err_t api_open_gate_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   trigger_relay();
   return ESP_OK;
 }
 
 // API: Get MQTT Config
 static esp_err_t api_get_mqtt_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   char uri[64], cmd[64], status[64];
   mqtt_manager_get_config(uri, cmd, status);
 
@@ -596,6 +662,10 @@ static esp_err_t api_get_mqtt_handler(httpd_req_t *req) {
 
 // API: Set MQTT Config
 static esp_err_t api_set_mqtt_handler(httpd_req_t *req) {
+  if (!is_authenticated(req)) {
+    httpd_resp_send_err(req, HTTPD_401_UNAUTHORIZED, "Unauthorized");
+    return ESP_FAIL;
+  }
   char buf[256];
   int ret, remaining = req->content_len;
   if (remaining >= sizeof(buf))
