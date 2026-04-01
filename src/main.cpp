@@ -42,6 +42,9 @@
 
 static const char *TAG = "GATE_CONTROL";
 
+static bool relay_active = false;
+static unsigned long relay_trigger_time = 0;
+
 #ifndef ARDUINO
 static int s_retry_num = 0;
 void start_softap(void);
@@ -155,9 +158,19 @@ void trigger_relay(void) {
            GPIO_RELAY_2);
   digitalWrite(GPIO_RELAY_1, LOW);
   digitalWrite(GPIO_RELAY_2, LOW);
-  delay(2000); // 2 second pulse
-  digitalWrite(GPIO_RELAY_1, HIGH);
-  digitalWrite(GPIO_RELAY_2, HIGH);
+  relay_trigger_time = millis();
+  relay_active = true;
+}
+
+void handle_relay_logic() {
+  if (relay_active) {
+    if (millis() - relay_trigger_time >= 2000) {
+      digitalWrite(GPIO_RELAY_1, HIGH);
+      digitalWrite(GPIO_RELAY_2, HIGH);
+      relay_active = false;
+      ESP_LOGI(TAG, "Relays Deactivated");
+    }
+  }
 }
 
 void setup(void) {
@@ -193,6 +206,7 @@ void setup(void) {
 }
 
 void loop() {
+  handle_relay_logic();
   static unsigned long last_debug_time = 0;
   if (millis() - last_debug_time > 5000) {
     last_debug_time = millis();
